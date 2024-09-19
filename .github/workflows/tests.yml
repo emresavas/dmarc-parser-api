@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Create .env file
+        run: |
+          echo "PYTHONUNBUFFERED=1" > .env
+          echo "FLASK_ENV=development" >> .env
+          echo "API_KEY=your_api_key" >> .env
+
+      - name: Install Docker compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+
+      - name: Build Docker
+        run: |
+          docker-compose up -d --build
+
+      - name: Wait for API 
+        run: |
+          timeout 30 sh -c 'until curl -s http://localhost:8080/; do sleep 2; done'
+
+      - name: Run API tests
+        run: |
+          python tests.py
+
+      - name: Shut down Docker Compose
+        if: always()
+        run: docker-compose down
